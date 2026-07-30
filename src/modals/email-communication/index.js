@@ -104,20 +104,20 @@ const EventCommunicationModal = () => {
 		}
 	}, [ isOpen ] );
 
-	useEffect( () => {
-		if ( isOpen ) {
-			const title =
-				select( 'core/editor' ).getEditedPostAttribute( 'title' ) ||
-				'';
-			setSubject(
-				sprintf(
-					// translators: %s: event title.
-					_x( '📅 %s', 'Email notification subject with event title', 'gatherpress' ),
-					title,
-				),
-			);
-		}
-	}, [ isOpen ] );
+	// The default subject is shown as a placeholder rather than written into
+	// state. Sending an empty subject lets the server compose the default per
+	// recipient, after `switch_to_user_locale()`, so each member still gets the
+	// subject in their own language. Pre-filling the field would post the
+	// sender's locale to everyone.
+	const defaultSubject = sprintf(
+		// translators: %s: event title.
+		_x(
+			'📅 %s',
+			'Email notification subject with event title',
+			'gatherpress'
+		),
+		select( 'core/editor' ).getEditedPostAttribute( 'title' ) || ''
+	);
 
 	return (
 		<>
@@ -131,8 +131,12 @@ const EventCommunicationModal = () => {
 					<TextControl
 						label={ __( 'Subject', 'gatherpress' ) }
 						value={ subject }
+						placeholder={ defaultSubject }
+						help={ __(
+							'Leave empty to use the default subject, which each member receives in their own language.',
+							'gatherpress'
+						) }
 						onChange={ ( value ) => setSubject( value ) }
-						style={ { marginBottom: '1rem' } }
 					/>
 					<TextareaControl
 						label={ __( 'Optional message', 'gatherpress' ) }

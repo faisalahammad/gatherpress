@@ -145,13 +145,25 @@ final class Rest_Api {
 						'required'          => true,
 						'validate_callback' => array( Validate::class, 'event_post_id' ),
 					),
+					// Both text params take the canonical schema trio. A
+					// `validate_callback` of `sanitize_text_field` neither
+					// validated nor sanitized, because a validate callback's
+					// return value is only read as pass/fail and a string is
+					// never `false`: a non-string param passed the request,
+					// which answered success, and then fataled the typed cron
+					// callback when it ran. `rest_validate_request_arg` answers
+					// the type mismatch with a 400 instead.
 					'message' => array(
 						'required'          => false,
-						'validate_callback' => 'sanitize_text_field',
+						'type'              => 'string',
+						'validate_callback' => 'rest_validate_request_arg',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'subject' => array(
 						'required'          => false,
-						'validate_callback' => 'sanitize_text_field',
+						'type'              => 'string',
+						'validate_callback' => 'rest_validate_request_arg',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'send'    => array(
 						'required'          => true,

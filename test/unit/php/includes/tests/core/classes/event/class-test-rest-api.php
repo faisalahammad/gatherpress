@@ -2668,4 +2668,80 @@ class Test_Rest_Api extends Base {
 
 		$this->assertNull( $recipient );
 	}
+
+	/**
+	 * The email route sanitizes its text params instead of only pretending to
+	 * validate them, so a non-string subject or message cannot reach the typed
+	 * cron callback and fatal it after the request has already reported success.
+	 *
+	 * @since 0.36.0
+	 *
+	 * @covers ::email_route
+	 *
+	 * @return void
+	 */
+	public function test_email_route_sanitizes_text_params(): void {
+		$route = Utility::invoke_hidden_method( Rest_Api::get_instance(), 'email_route' );
+		$args  = $route['args']['args'];
+
+		foreach ( array( 'message', 'subject' ) as $param ) {
+			$this->assertSame(
+				'string',
+				$args[ $param ]['type'],
+				sprintf( 'The %s param should declare a string type.', $param )
+			);
+			$this->assertSame(
+				'sanitize_text_field',
+				$args[ $param ]['sanitize_callback'],
+				sprintf( 'The %s param should sanitize rather than validate.', $param )
+			);
+			$this->assertSame(
+				'rest_validate_request_arg',
+				$args[ $param ]['validate_callback'],
+				sprintf(
+					'The %s param should validate against its schema so a type mismatch answers 400.',
+					$param
+				)
+			);
+		}
+	}
+
+	/**
+	 * A request that leaves the subject empty schedules an empty subject, which
+	 * is what lets the sender compose the default per recipient inside the
+	 * locale switch rather than freezing the sender's language into it.
+	 *
+	 * @since 0.36.0
+	 *
+	 * @covers ::email
+	 *
+	 * @return void
+	 */
+	public function test_email_schedules_empty_subject_when_not_supplied(): void {
+		add_filter( 'pre_wp_mail', '__return_false' );
+
+		$event_id = $this->mock->post( array( 'post_type' => Event::POST_TYPE ) )->get()->ID;
+		$send     = array(
+			'all'           => false,
+			'attending'     => false,
+			'waiting_list'  => false,
+			'not_attending' => true,
+		);
+
+		$request = new WP_REST_Request( 'POST' );
+		$request->set_query_params(
+			array(
+				'post_id' => $event_id,
+				'message' => 'Unit test',
+				'send'    => $send,
+			)
+		);
+
+		Rest_Api::get_instance()->email( $request );
+
+		$this->assertNotFalse(
+			wp_next_scheduled( 'gatherpress_send_emails', array( $event_id, $send, 'Unit test', '' ) ),
+			'An unsupplied subject should be scheduled as an empty string.'
+		);
+	}
 }
